@@ -294,6 +294,11 @@
     pauseSynth = new Tone.Oscillator(82, "sine").connect(gainNode);
     endSynth = new Tone.Oscillator(440, "sine").connect(gainNode);
 
+    inhaleSynth.volume.value = -Infinity;
+    exhaleSynth.volume.value = -Infinity;
+    pauseSynth.volume.value = -Infinity;
+    endSynth.volume.value = -Infinity;
+
     inhaleSynth.start();
     exhaleSynth.start();
     pauseSynth.start();
@@ -332,6 +337,7 @@
     gainNode.gain.linearRampToValueAtTime(0, Tone.now() + 0.05);
   }
 
+
   function doPhase() {
     if (!breathing || totalTimeRemaining <= 0) return;
 
@@ -340,11 +346,14 @@
     let inhalePause = parseFloat(inhalePauseSetting.value);
     let exhalePause = parseFloat(exhalePauseSetting.value);
 
+    // Silence all synths first
+    inhaleSynth.volume.value = -Infinity;
+    exhaleSynth.volume.value = -Infinity;
+    pauseSynth.volume.value = -Infinity;
+
     switch (phase) {
       case "inhale":
         inhaleSynth.volume.value = 0;
-        exhaleSynth.volume.value = -Infinity;
-        pauseSynth.volume.value = -Infinity;
         fadeIn();
         animateRadius(30, 90, inhale * 1000, () => {
           fadeOut();
@@ -353,8 +362,6 @@
         });
         break;
       case "inhalePause":
-        inhaleSynth.volume.value = -Infinity;
-        exhaleSynth.volume.value = -Infinity;
         pauseSynth.volume.value = 0;
         fadeIn();
         phaseTimeout = setTimeout(() => {
@@ -364,9 +371,7 @@
         }, inhalePause * 1000);
         break;
       case "exhale":
-        inhaleSynth.volume.value = -Infinity;
         exhaleSynth.volume.value = 0;
-        pauseSynth.volume.value = -Infinity;
         fadeIn();
         animateRadius(90, 30, exhale * 1000, () => {
           fadeOut();
@@ -375,8 +380,6 @@
         });
         break;
       case "exhalePause":
-        inhaleSynth.volume.value = -Infinity;
-        exhaleSynth.volume.value = -Infinity;
         pauseSynth.volume.value = 0;
         fadeIn();
         phaseTimeout = setTimeout(() => {
@@ -389,9 +392,10 @@
   }
 
 
-function resetTimeRemaining() {
-    totalTimeRemaining = parseInt(durationSetting.value) * 60;
-  }
+
+  function resetTimeRemaining() {
+      totalTimeRemaining = parseInt(durationSetting.value) * 60;
+    }
 
   function startBreathing() {
     if (!breathing) {
@@ -409,6 +413,7 @@ function resetTimeRemaining() {
       });
     }
   }
+  
   function startTimer() {
     clearInterval(timerInterval);
     updateTimeRemaining();
@@ -456,12 +461,16 @@ function resetTimeRemaining() {
     doPhase();
     noSleep.enable();
   }
-  
+
   function stopBreathing() {
     breathing = false;
     paused = true;
     phase = "inhale";
     fadeOut();
+    // Silence all synths
+    inhaleSynth.volume.value = -Infinity;
+    exhaleSynth.volume.value = -Infinity;
+    pauseSynth.volume.value = -Infinity;
     noSleep.disable();
     clearTimeout(phaseTimeout);
     cancelAnimationFrame(animFrame);
