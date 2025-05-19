@@ -189,7 +189,7 @@
       <select id="durationSetting">
         <option value="5">5 min</option>
         <option value="10">10 min</option>
-        <option value="15">15 min</option>
+        <option value="15" selected>15 min</option>
         <option value="20">20 min</option>
       </select>
     </label>
@@ -205,7 +205,7 @@
   </button>
   <button class="playpause-btn" id="playPauseBtn">
     <span id="playPauseIcon"><i class="bi bi-play-fill"></i></span>
-    <span id="timeRemaining" style="display:none;">00:00</span>
+    <span id="timeRemaining">00:00</span>
   </button>
 </div>
 
@@ -224,39 +224,16 @@
   const exhalePauseSetting = document.getElementById('exhalePauseSetting');
   const durationSetting = document.getElementById('durationSetting');
 
-  // Hidden inputs for script logic
-  const inhaleInput = document.createElement('input');
-  const exhaleInput = document.createElement('input');
-  const inhalePauseInput = document.createElement('input');
-  const exhalePauseInput = document.createElement('input');
-  const durationInput = document.createElement('select');
-  inhaleInput.id = "inhale";
-  exhaleInput.id = "exhale";
-  inhalePauseInput.id = "inhalePause";
-  exhalePauseInput.id = "exhalePause";
-  durationInput.id = "duration";
-  inhaleInput.type = exhaleInput.type = inhalePauseInput.type = exhalePauseInput.type = "hidden";
-  document.body.appendChild(inhaleInput);
-  document.body.appendChild(exhaleInput);
-  document.body.appendChild(inhalePauseInput);
-  document.body.appendChild(exhalePauseInput);
-  document.body.appendChild(durationInput);
+  // --- Timer and Play/Pause Logic ---
+  let phase = "inhale";
+  let totalTimeRemaining = 0;
+  let breathing = false;
+  let paused = true;
+  let timerInterval = null;
+  let phaseTimeout = null;
+  const noSleep = new NoSleep();
 
-  // Sync settings modal to hidden inputs
-  function syncSettingsToInputs() {
-    inhaleInput.value = inhaleSetting.value;
-    exhaleInput.value = exhaleSetting.value;
-    inhalePauseInput.value = inhalePauseSetting.value;
-    exhalePauseInput.value = exhalePauseSetting.value;
-    durationInput.value = durationSetting.value;
-  }
-  function syncInputsToSettings() {
-    inhaleSetting.value = inhaleInput.value;
-    exhaleSetting.value = exhaleInput.value;
-    inhalePauseSetting.value = inhalePauseInput.value;
-    exhalePauseSetting.value = exhalePauseInput.value;
-    durationSetting.value = durationInput.value;
-  }
+
 
   // LocalStorage
   function saveSettingsToStorage() {
@@ -269,6 +246,7 @@
     };
     localStorage.setItem('breathingSettings', JSON.stringify(settings));
   }
+
   function loadSettingsFromStorage() {
     const settings = JSON.parse(localStorage.getItem('breathingSettings'));
     if (settings) {
@@ -276,18 +254,18 @@
       exhaleSetting.value = settings.exhale;
       inhalePauseSetting.value = settings.inhalePause;
       exhalePauseSetting.value = settings.exhalePause;
-      durationSetting.value = settings.duration;
-      syncSettingsToInputs();
+      durationSetting.value = settings.duration || "15";
+    } else {
+      durationSetting.value = "15";
     }
   }
 
   hamburgerBtn.onclick = () => {
-    syncInputsToSettings();
     settingsModal.classList.add('active');
   };
+
   closeSettings.onclick = () => {
     settingsModal.classList.remove('active');
-    syncSettingsToInputs();
     saveSettingsToStorage();
     resetTimeRemaining();
     updateTimeRemaining();
@@ -296,18 +274,12 @@
     }
   };
 
-  // On load, restore settings
+  // On load, restore settings and initialize timer
   loadSettingsFromStorage();
-  syncSettingsToInputs();
+  resetTimeRemaining();
+  updateTimeRemaining();
+  updatePlayPauseBtn();
 
-  // --- Timer and Play/Pause Logic ---
-  let phase = "inhale";
-  let totalTimeRemaining = 0;
-  let breathing = false;
-  let paused = true;
-  let timerInterval = null;
-  let phaseTimeout = null;
-  const noSleep = new NoSleep();
 
   // Sound
   let inhaleSynth, exhaleSynth, pauseSynth, endSynth;
@@ -316,7 +288,6 @@
     exhaleSynth = new Tone.Oscillator(124, "sine").toDestination();
     pauseSynth = new Tone.Oscillator(82, "sine").toDestination();
     endSynth = new Tone.Oscillator(440, "sine").toDestination();
-    // Keep original volume (no changes)
   }
   setupSynths();
 
@@ -344,10 +315,10 @@
   function doPhase() {
     if (!breathing || totalTimeRemaining <= 0) return;
 
-    let inhale = parseFloat(inhaleInput.value);
-    let exhale = parseFloat(exhaleInput.value);
-    let inhalePause = parseFloat(inhalePauseInput.value);
-    let exhalePause = parseFloat(exhalePauseInput.value);
+    let inhale = parseFloat(inhaleSetting.value);
+    let exhale = parseFloat(exhaleSetting.value);
+    let inhalePause = parseFloat(inhalePauseSetting.value);
+    let exhalePause = parseFloat(exhalePauseSetting.value);
 
     switch (phase) {
       case "inhale":
@@ -389,13 +360,13 @@
   }
 
   function resetTimeRemaining() {
-    totalTimeRemaining = parseInt(durationInput.value) * 60;
+    totalTimeRemaining = parseInt(durationSetting.value) * 60;
   }
 
   function startBreathing() {
     if (!breathing) {
       Tone.start().then(() => {
-        setupSynths(); // Recreate synths for precise timing
+        setupSynths();
         noSleep.enable();
         breathing = true;
         paused = false;
@@ -403,14 +374,13 @@
         resetTimeRemaining();
         updatePlayPauseBtn();
         updateTimeRemaining();
-        document.getElementById("timeRemaining").style.display = "";
         doPhase();
         startTimer();
       });
     }
   }
-
   function startTimer() {
+    clearInterval(timerInterval);
     updateTimeRemaining();
     timerInterval = setInterval(() => {
       if (breathing && !paused && totalTimeRemaining > 0) {
@@ -429,11 +399,10 @@
     const min = Math.floor(totalTimeRemaining / 60);
     const sec = totalTimeRemaining % 60;
     const timeElem = document.getElementById("timeRemaining");
-    if (isNaN(min) || isNaN(sec) || totalTimeRemaining <= 0) {
-      timeElem.style.display = "none";
+    if (isNaN(min) || isNaN(sec) || totalTimeRemaining < 0) {
+      timeElem.textContent = "00:00";
     } else {
       timeElem.textContent = `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
-      timeElem.style.display = "";
     }
   }
 
@@ -473,7 +442,6 @@
     updatePlayPauseBtn();
     resetTimeRemaining();
     updateTimeRemaining();
-    document.getElementById("timeRemaining").style.display = "";
   }
 
   function restartBreathing() {
@@ -502,21 +470,12 @@
     }
   }
 
-  // On load, initialize time remaining to settings value
-  function initializeTimeRemaining() {
-    resetTimeRemaining();
-    updateTimeRemaining();
-    document.getElementById("timeRemaining").style.display = "";
-  }
-  initializeTimeRemaining();
-  updatePlayPauseBtn();
-
-  // If settings change, update hidden inputs and timer
+  // If settings change, update timer and save
   [inhaleSetting, exhaleSetting, inhalePauseSetting, exhalePauseSetting, durationSetting].forEach(input => {
     input.addEventListener('change', () => {
-      syncSettingsToInputs();
       resetTimeRemaining();
       updateTimeRemaining();
+      saveSettingsToStorage();
     });
   });
 
@@ -524,5 +483,6 @@
   document.getElementById("playPauseBtn").onclick = togglePlayPause;
   document.getElementById("restartBtn").onclick = restartBreathing;
 </script>
+
 </body>
 </html>
