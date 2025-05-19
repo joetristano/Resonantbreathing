@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Resonant Breathing</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <style>
     body {
       margin: 0;
@@ -13,50 +15,57 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
+      overflow: hidden;
     }
-
     .main {
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-
     svg {
-      width: 200px;
-      height: 200px;
+      width: 100%;
+      height: 100%;
+      max-width: 300px;
+      max-height: 300px;
     }
-
     #circle {
       fill: url(#grad);
-      transition: r 1s ease-in-out;
+      transition: r 0.5s ease-in-out;
     }
-
-    .controls {
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
       padding: 10px;
       background: rgba(0, 0, 0, 0.8);
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 10px;
-      align-items: center;
+      height: 80px;
     }
-
-    input, button, select {
-      width: 100%;
-      padding: 8px;
-      border-radius: 5px;
-      border: none;
-      font-size: 14px;
+    .bottom-bar button {
+      margin: 0 5px;
+      height: 60px;
+      font-size: 1.2rem;
     }
-
-    button {
-      background: #1e2a38;
-      color: white;
-      cursor: pointer;
+    #settingsModal {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #111;
+      border-top: 2px solid #444;
+      padding: 15px;
+      display: none;
+      z-index: 1000;
     }
-
-    button:hover {
-      background: #2c3f57;
+    #settingsModal label {
+      margin-top: 10px;
+      display: block;
+    }
+    #timerText {
+      font-size: 1.5rem;
+      margin-left: 10px;
+      min-width: 60px;
+      text-align: center;
     }
   </style>
 </head>
@@ -66,35 +75,38 @@
   <svg viewBox="0 0 200 200">
     <defs>
       <radialGradient id="grad" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stop-color="#ccc"/>
-        <stop offset="100%" stop-color="#888"/>
+        <stop offset="0%" style="stop-color:lightgray; stop-opacity:1" />
+        <stop offset="100%" style="stop-color:gray; stop-opacity:1" />
       </radialGradient>
     </defs>
-    <circle id="circle" cx="100" cy="100" r="50" />
+    <circle id="circle" cx="100" cy="100" r="30"/>
   </svg>
 </div>
 
-<div class="controls">
-  <label>Inhale (s): <input type="number" id="inhale" value="4" /></label>
-  <label>Inhale Pause (s): <input type="number" id="inhalePause" value="0" /></label>
-  <label>Exhale (s): <input type="number" id="exhale" value="6" /></label>
-  <label>Exhale Pause (s): <input type="number" id="exhalePause" value="0" /></label>
-  <label>Total Duration:
-    <select id="duration">
-      <option value="5">5 min</option>
-      <option value="10">10 min</option>
-      <option value="15">15 min</option>
-      <option value="20">20 min</option>
-    </select>
-  </label>
-  <button onclick="startBreathing()">Start</button>
-  <button onclick="pauseBreathing()">Pause</button>
-  <button onclick="stopBreathing()">Stop</button>
-  <button onclick="restartBreathing()">Restart</button>
+<div class="bottom-bar">
+  <button class="btn btn-secondary" onclick="toggleSettings()">
+    <i class="bi bi-list"></i>
+  </button>
+  <button class="btn btn-warning" onclick="restartBreathing()">
+    <i class="bi bi-arrow-clockwise"></i>
+  </button>
+  <button class="btn btn-success flex-grow-1 d-flex align-items-center justify-content-center" onclick="togglePlayPause()">
+    <i id="playPauseIcon" class="bi bi-play-fill me-2" style="font-size: 1.5rem;"></i>
+    <span id="timerText">00:00</span>
+  </button>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
+<div id="settingsModal">
+  <label>Inhale (sec): <input type="number" id="inhale" value="4"></label>
+  <label>Inhale Pause (sec): <input type="number" id="inhalePause" value="0"></label>
+  <label>Exhale (sec): <input type="number" id="exhale" value="6"></label>
+  <label>Exhale Pause (sec): <input type="number" id="exhalePause" value="0"></label>
+  <label>Duration (min): <input type="number" id="duration" value="5"></label>
+  <button class="btn btn-danger mt-3" onclick="toggleSettings()">Close</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tone"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/no-sleep/0.12.0/NoSleep.min.js"></script>
 <script>
   const circle = document.getElementById("circle");
   const inhaleInput = document.getElementById("inhale");
@@ -102,112 +114,113 @@
   const inhalePauseInput = document.getElementById("inhalePause");
   const exhalePauseInput = document.getElementById("exhalePause");
   const durationInput = document.getElementById("duration");
+  const settingsModal = document.getElementById("settingsModal");
+  const playPauseIcon = document.getElementById("playPauseIcon");
+  const timerText = document.getElementById("timerText");
 
-  let phase = "inhale";
-  let timeout;
-  let totalTimeRemaining = 0;
-  let breathing = false;
-  const noSleep = new NoSleep();
+  let isRunning = false;
+  let intervalId, endTime;
+  let noSleep = new NoSleep();
 
-  const inhaleSynth = new Tone.Oscillator(62, "sine").toDestination();
-  const exhaleSynth = new Tone.Oscillator(124, "sine").toDestination();
-  const endSynth = new Tone.Oscillator(440, "sine").toDestination();
-
-  inhaleSynth.volume.value = -6;
-  exhaleSynth.volume.value = -6;
-
-  function changeRadius(r) {
-    circle.setAttribute("r", r);
+  function toggleSettings() {
+    settingsModal.style.display = settingsModal.style.display === "none" ? "block" : "none";
   }
 
-  function doPhase() {
-    if (!breathing || totalTimeRemaining <= 0) return;
+  function saveSettings() {
+    localStorage.setItem('breathSettings', JSON.stringify({
+      inhale: inhaleInput.value,
+      exhale: exhaleInput.value,
+      inhalePause: inhalePauseInput.value,
+      exhalePause: exhalePauseInput.value,
+      duration: durationInput.value
+    }));
+  }
 
-    let inhale = parseFloat(inhaleInput.value);
-    let exhale = parseFloat(exhaleInput.value);
-    let inhalePause = parseFloat(inhalePauseInput.value);
-    let exhalePause = parseFloat(exhalePauseInput.value);
+  function loadSettings() {
+    const saved = JSON.parse(localStorage.getItem('breathSettings'));
+    if (saved) {
+      inhaleInput.value = saved.inhale;
+      exhaleInput.value = saved.exhale;
+      inhalePauseInput.value = saved.inhalePause;
+      exhalePauseInput.value = saved.exhalePause;
+      durationInput.value = saved.duration;
+    }
+  }
 
-    switch (phase) {
-      case "inhale":
-        changeRadius(90);
-        inhaleSynth.start();
-        setTimeout(() => {
-          inhaleSynth.stop();
-          phase = inhalePause > 0 ? "inhalePause" : "exhale";
-          doPhase();
-        }, inhale * 1000);
-        break;
+  loadSettings();
 
-      case "inhalePause":
-        setTimeout(() => {
-          phase = "exhale";
-          doPhase();
-        }, inhalePause * 1000);
-        break;
+  function updateTimerDisplay() {
+    const remaining = Math.max(0, endTime - Date.now());
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    timerText.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
 
-      case "exhale":
-        changeRadius(30);
-        exhaleSynth.start();
-        setTimeout(() => {
-          exhaleSynth.stop();
-          phase = exhalePause > 0 ? "exhalePause" : "inhale";
-          doPhase();
-        }, exhale * 1000);
-        break;
+  async function togglePlayPause() {
+    saveSettings();
+    if (!isRunning) {
+      noSleep.enable();
+      await Tone.start();
+      playPauseIcon.classList.replace("bi-play-fill", "bi-pause-fill");
+      startBreathing();
+    } else {
+      noSleep.disable();
+      clearInterval(intervalId);
+      isRunning = false;
+      playPauseIcon.classList.replace("bi-pause-fill", "bi-play-fill");
+    }
+  }
 
-      case "exhalePause":
-        setTimeout(() => {
-          phase = "inhale";
-          doPhase();
-        }, exhalePause * 1000);
-        break;
+  function restartBreathing() {
+    if (isRunning) {
+      togglePlayPause();
+      setTimeout(togglePlayPause, 100);
     }
   }
 
   function startBreathing() {
-    if (!breathing) {
-      Tone.start();
-      noSleep.enable();
-      breathing = true;
-      totalTimeRemaining = parseInt(durationInput.value) * 60;
-      doPhase();
-      decrementTimer();
-    }
-  }
+    const inhale = parseInt(inhaleInput.value);
+    const exhale = parseInt(exhaleInput.value);
+    const inhalePause = parseInt(inhalePauseInput.value);
+    const exhalePause = parseInt(exhalePauseInput.value);
+    const duration = parseInt(durationInput.value);
 
-  function decrementTimer() {
-    if (breathing && totalTimeRemaining > 0) {
-      totalTimeRemaining--;
-      setTimeout(decrementTimer, 1000);
-    } else if (breathing && totalTimeRemaining <= 0) {
-      endSynth.start();
-      setTimeout(() => endSynth.stop(), 1500);
-      stopBreathing();
-    }
-  }
+    const totalDuration = duration * 60000;
+    endTime = Date.now() + totalDuration;
+    updateTimerDisplay();
 
-  function pauseBreathing() {
-    breathing = false;
-    inhaleSynth.stop();
-    exhaleSynth.stop();
-    noSleep.disable();
-  }
+    const synth = new Tone.Synth().toDestination();
+    const baseFreq = 62;
+    const lowFreq = 52;
+    const ding = new Tone.Synth().toDestination();
 
-  function stopBreathing() {
-    breathing = false;
-    phase = "inhale";
-    inhaleSynth.stop();
-    exhaleSynth.stop();
-    noSleep.disable();
-    changeRadius(60);
-  }
+    const schedule = async () => {
+      if (Date.now() >= endTime) {
+        synth.triggerAttackRelease(440, "1s");
+        clearInterval(intervalId);
+        isRunning = false;
+        playPauseIcon.classList.replace("bi-pause-fill", "bi-play-fill");
+        return;
+      }
 
-  function restartBreathing() {
-    stopBreathing();
-    startBreathing();
+      updateTimerDisplay();
+
+      // Inhale
+      circle.setAttribute("r", "80");
+      synth.triggerAttackRelease(lowFreq, `${inhale}s`);
+      await Tone.start();
+      await Tone.Transport.scheduleOnce(() => {}, `+${inhale}`);
+      setTimeout(() => {
+        circle.setAttribute("r", "30");
+        synth.triggerAttackRelease(baseFreq, `${exhale}s`);
+      }, (inhale + inhalePause) * 1000);
+
+    };
+
+    isRunning = true;
+    schedule();
+    intervalId = setInterval(schedule, (inhale + inhalePause + exhale + exhalePause) * 1000);
   }
 </script>
-
 </body>
 </html>
