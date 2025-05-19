@@ -1,214 +1,213 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Resonant Breathing</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
-      height: 100%;
-      background: linear-gradient(to bottom, #1e2a38, #000000);
-      font-family: Arial, sans-serif;
+      font-family: sans-serif;
+      background: linear-gradient(to bottom, #0b1d3a, #000);
       color: white;
-      overflow: hidden;
       display: flex;
       flex-direction: column;
+      height: 100vh;
     }
 
-    #top-container {
+    .main {
       flex: 1;
       display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      height: calc(100% - 160px); /* Leaves space for controls */
-    }
-
-    #svg-wrapper {
-      display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
     }
 
-    #breath-svg {
-      width: 100%;
-      max-width: 400px;
-      height: auto;
+    svg {
+      width: 200px;
+      height: 200px;
     }
 
-    #phase-label {
-      margin-top: 10px;
-      font-size: 1.5em;
-      text-align: center;
+    #circle {
+      fill: url(#grad);
+      transition: r 1s ease-in-out;
     }
 
-    #controls {
-      position: relative;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: rgba(30, 42, 56, 0.95);
+    .controls {
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.8);
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 8px;
-      padding: 10px;
-      box-sizing: border-box;
+      gap: 10px;
+      align-items: center;
     }
 
-    label {
-      display: flex;
-      flex-direction: column;
-      font-size: 0.9em;
-    }
-
-    input, select, button {
-      font-size: 1em;
-      margin-top: 2px;
-      padding: 4px;
+    input, button, select {
       width: 100%;
+      padding: 8px;
+      border-radius: 5px;
+      border: none;
+      font-size: 14px;
     }
 
     button {
-      background: #2a3f5f;
+      background: #1e2a38;
       color: white;
-      border: none;
       cursor: pointer;
     }
 
     button:hover {
-      background: #3a5f7f;
+      background: #2c3f57;
     }
   </style>
 </head>
 <body>
 
-  <div id="top-container">
-    <div id="svg-wrapper">
-      <svg id="breath-svg" viewBox="0 0 400 400">
-        <defs>
-          <radialGradient id="grad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#ddd"/>
-            <stop offset="100%" stop-color="#666"/>
-          </radialGradient>
-        </defs>
-        <circle id="breath-circle" cx="200" cy="200" r="50" fill="url(#grad)" />
-      </svg>
-      <div id="phase-label">Ready</div>
-    </div>
-  </div>
+<div class="main">
+  <svg viewBox="0 0 200 200">
+    <defs>
+      <radialGradient id="grad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#ccc"/>
+        <stop offset="100%" stop-color="#888"/>
+      </radialGradient>
+    </defs>
+    <circle id="circle" cx="100" cy="100" r="50" />
+  </svg>
+</div>
 
-  <div id="controls">
-    <label>Inhale (s): <input type="number" id="inhale" value="4" min="0"></label>
-    <label>Inhale Pause (s): <input type="number" id="inhalePause" value="0" min="0"></label>
-    <label>Exhale (s): <input type="number" id="exhale" value="4" min="0"></label>
-    <label>Exhale Pause (s): <input type="number" id="exhalePause" value="0" min="0"></label>
-    <label>Duration:
-      <select id="duration">
-        <option value="300">5 min</option>
-        <option value="600">10 min</option>
-        <option value="900">15 min</option>
-        <option value="1200">20 min</option>
-      </select>
-    </label>
-    <button onclick="startBreathing()">Start</button>
-    <button onclick="pauseBreathing()">Pause</button>
-    <button onclick="stopBreathing()">Stop</button>
-  </div>
+<div class="controls">
+  <label>Inhale (s): <input type="number" id="inhale" value="4" /></label>
+  <label>Inhale Pause (s): <input type="number" id="inhalePause" value="0" /></label>
+  <label>Exhale (s): <input type="number" id="exhale" value="6" /></label>
+  <label>Exhale Pause (s): <input type="number" id="exhalePause" value="0" /></label>
+  <label>Total Duration:
+    <select id="duration">
+      <option value="5">5 min</option>
+      <option value="10">10 min</option>
+      <option value="15">15 min</option>
+      <option value="20">20 min</option>
+    </select>
+  </label>
+  <button onclick="startBreathing()">Start</button>
+  <button onclick="pauseBreathing()">Pause</button>
+  <button onclick="stopBreathing()">Stop</button>
+  <button onclick="restartBreathing()">Restart</button>
+</div>
 
-  <script>
-    const circle = document.getElementById("breath-circle");
-    const label = document.getElementById("phase-label");
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
+<script>
+  const circle = document.getElementById("circle");
+  const inhaleInput = document.getElementById("inhale");
+  const exhaleInput = document.getElementById("exhale");
+  const inhalePauseInput = document.getElementById("inhalePause");
+  const exhalePauseInput = document.getElementById("exhalePause");
+  const durationInput = document.getElementById("duration");
 
-    const synth = new Tone.Synth({
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.2, decay: 0.1, sustain: 1, release: 0.2 }
-    }).toDestination();
-    synth.volume.value = 9;
+  let phase = "inhale";
+  let timeout;
+  let totalTimeRemaining = 0;
+  let breathing = false;
+  const noSleep = new NoSleep();
 
-    let running = false;
-    let timeoutID, animationFrame;
-    let currentPhase = 0;
-    let remainingTime = 0;
-    let phases = [];
+  const inhaleSynth = new Tone.Oscillator(62, "sine").toDestination();
+  const exhaleSynth = new Tone.Oscillator(124, "sine").toDestination();
+  const endSynth = new Tone.Oscillator(440, "sine").toDestination();
 
-    function createPhases() {
-      phases = [];
-      let inhale = parseFloat(document.getElementById("inhale").value);
-      let inhalePause = parseFloat(document.getElementById("inhalePause").value);
-      let exhale = parseFloat(document.getElementById("exhale").value);
-      let exhalePause = parseFloat(document.getElementById("exhalePause").value);
-      remainingTime = parseFloat(document.getElementById("duration").value);
+  inhaleSynth.volume.value = -6;
+  exhaleSynth.volume.value = -6;
 
-      if (inhale > 0) phases.push({ label: "Inhale", duration: inhale, freq: 62, radius: 180 });
-      if (inhalePause > 0) phases.push({ label: "Hold", duration: inhalePause, freq: null, radius: 180 });
-      if (exhale > 0) phases.push({ label: "Exhale", duration: exhale, freq: 124, radius: 50 });
-      if (exhalePause > 0) phases.push({ label: "Pause", duration: exhalePause, freq: null, radius: 50 });
+  function changeRadius(r) {
+    circle.setAttribute("r", r);
+  }
+
+  function doPhase() {
+    if (!breathing || totalTimeRemaining <= 0) return;
+
+    let inhale = parseFloat(inhaleInput.value);
+    let exhale = parseFloat(exhaleInput.value);
+    let inhalePause = parseFloat(inhalePauseInput.value);
+    let exhalePause = parseFloat(exhalePauseInput.value);
+
+    switch (phase) {
+      case "inhale":
+        changeRadius(90);
+        inhaleSynth.start();
+        setTimeout(() => {
+          inhaleSynth.stop();
+          phase = inhalePause > 0 ? "inhalePause" : "exhale";
+          doPhase();
+        }, inhale * 1000);
+        break;
+
+      case "inhalePause":
+        setTimeout(() => {
+          phase = "exhale";
+          doPhase();
+        }, inhalePause * 1000);
+        break;
+
+      case "exhale":
+        changeRadius(30);
+        exhaleSynth.start();
+        setTimeout(() => {
+          exhaleSynth.stop();
+          phase = exhalePause > 0 ? "exhalePause" : "inhale";
+          doPhase();
+        }, exhale * 1000);
+        break;
+
+      case "exhalePause":
+        setTimeout(() => {
+          phase = "inhale";
+          doPhase();
+        }, exhalePause * 1000);
+        break;
     }
+  }
 
-    let currentRadius = 50;
-    let targetRadius = 50;
-
-    function animateCircle() {
-      currentRadius += (targetRadius - currentRadius) * 0.05;
-      circle.setAttribute("r", currentRadius.toFixed(2));
-      animationFrame = requestAnimationFrame(animateCircle);
+  function startBreathing() {
+    if (!breathing) {
+      Tone.start();
+      noSleep.enable();
+      breathing = true;
+      totalTimeRemaining = parseInt(durationInput.value) * 60;
+      doPhase();
+      decrementTimer();
     }
+  }
 
-    function playPhase() {
-      if (!running || remainingTime <= 0) {
-        label.textContent = "Session Complete";
-        cancelAnimationFrame(animationFrame);
-        circle.setAttribute("r", 50);
-        synth.triggerAttackRelease(440, 2);
-        return;
-      }
-
-      const phase = phases[currentPhase];
-      label.textContent = phase.label;
-      targetRadius = phase.radius;
-
-      if (phase.freq) {
-        Tone.start().then(() => {
-          synth.triggerAttackRelease(phase.freq, phase.duration);
-        });
-      }
-
-      remainingTime -= phase.duration;
-      timeoutID = setTimeout(() => {
-        currentPhase = (currentPhase + 1) % phases.length;
-        playPhase();
-      }, phase.duration * 1000);
+  function decrementTimer() {
+    if (breathing && totalTimeRemaining > 0) {
+      totalTimeRemaining--;
+      setTimeout(decrementTimer, 1000);
+    } else if (breathing && totalTimeRemaining <= 0) {
+      endSynth.start();
+      setTimeout(() => endSynth.stop(), 1500);
+      stopBreathing();
     }
+  }
 
-    function startBreathing() {
-      clearTimeout(timeoutID);
-      cancelAnimationFrame(animationFrame);
-      createPhases();
-      currentPhase = 0;
-      running = true;
-      animateCircle();
-      playPhase();
-    }
+  function pauseBreathing() {
+    breathing = false;
+    inhaleSynth.stop();
+    exhaleSynth.stop();
+    noSleep.disable();
+  }
 
-    function pauseBreathing() {
-      clearTimeout(timeoutID);
-      cancelAnimationFrame(animationFrame);
-      running = false;
-      label.textContent = "Paused";
-    }
+  function stopBreathing() {
+    breathing = false;
+    phase = "inhale";
+    inhaleSynth.stop();
+    exhaleSynth.stop();
+    noSleep.disable();
+    changeRadius(60);
+  }
 
-    function stopBreathing() {
-      clearTimeout(timeoutID);
-      cancelAnimationFrame(animationFrame);
-      running = false;
-      remainingTime = 0;
-      label.textContent = "Stopped";
-      circle.setAttribute("r", 50);
-    }
-  </script>
+  function restartBreathing() {
+    stopBreathing();
+    startBreathing();
+  }
+</script>
+
 </body>
 </html>
