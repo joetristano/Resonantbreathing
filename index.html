@@ -285,12 +285,19 @@
   // Sound
   let inhaleSynth, exhaleSynth, pauseSynth, endSynth;
   let gainNode;
+
   function setupSynths() {
     gainNode = new Tone.Gain(0).toDestination();
+
     inhaleSynth = new Tone.Oscillator(62, "sine").connect(gainNode);
     exhaleSynth = new Tone.Oscillator(124, "sine").connect(gainNode);
     pauseSynth = new Tone.Oscillator(82, "sine").connect(gainNode);
     endSynth = new Tone.Oscillator(440, "sine").connect(gainNode);
+
+    inhaleSynth.start();
+    exhaleSynth.start();
+    pauseSynth.start();
+    endSynth.start();
   }
   setupSynths();
 
@@ -335,49 +342,54 @@
 
     switch (phase) {
       case "inhale":
-        inhaleSynth.start(Tone.now());
+        inhaleSynth.volume.value = 0;
+        exhaleSynth.volume.value = -Infinity;
+        pauseSynth.volume.value = -Infinity;
         fadeIn();
         animateRadius(30, 90, inhale * 1000, () => {
           fadeOut();
-          setTimeout(() => inhaleSynth.stop(Tone.now()), 60); // stop after fade
           phase = inhalePause > 0 ? "inhalePause" : "exhale";
-          doPhase();
+          setTimeout(doPhase, 60);
         });
         break;
       case "inhalePause":
-        pauseSynth.start(Tone.now());
+        inhaleSynth.volume.value = -Infinity;
+        exhaleSynth.volume.value = -Infinity;
+        pauseSynth.volume.value = 0;
         fadeIn();
         phaseTimeout = setTimeout(() => {
           fadeOut();
-          setTimeout(() => pauseSynth.stop(Tone.now()), 60);
           phase = "exhale";
-          doPhase();
+          setTimeout(doPhase, 60);
         }, inhalePause * 1000);
         break;
       case "exhale":
-        exhaleSynth.start(Tone.now());
+        inhaleSynth.volume.value = -Infinity;
+        exhaleSynth.volume.value = 0;
+        pauseSynth.volume.value = -Infinity;
         fadeIn();
         animateRadius(90, 30, exhale * 1000, () => {
           fadeOut();
-          setTimeout(() => exhaleSynth.stop(Tone.now()), 60);
           phase = exhalePause > 0 ? "exhalePause" : "inhale";
-          doPhase();
+          setTimeout(doPhase, 60);
         });
         break;
       case "exhalePause":
-        pauseSynth.start(Tone.now());
+        inhaleSynth.volume.value = -Infinity;
+        exhaleSynth.volume.value = -Infinity;
+        pauseSynth.volume.value = 0;
         fadeIn();
         phaseTimeout = setTimeout(() => {
           fadeOut();
-          setTimeout(() => pauseSynth.stop(Tone.now()), 60);
           phase = "inhale";
-          doPhase();
+          setTimeout(doPhase, 60);
         }, exhalePause * 1000);
         break;
     }
   }
 
-  function resetTimeRemaining() {
+
+function resetTimeRemaining() {
     totalTimeRemaining = parseInt(durationSetting.value) * 60;
   }
 
@@ -444,14 +456,12 @@
     doPhase();
     noSleep.enable();
   }
-
+  
   function stopBreathing() {
     breathing = false;
     paused = true;
     phase = "inhale";
-    if (inhaleSynth) inhaleSynth.stop(Tone.now());
-    if (exhaleSynth) exhaleSynth.stop(Tone.now());
-    if (pauseSynth) pauseSynth.stop(Tone.now());
+    fadeOut();
     noSleep.disable();
     clearTimeout(phaseTimeout);
     cancelAnimationFrame(animFrame);
