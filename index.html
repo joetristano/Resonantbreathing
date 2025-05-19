@@ -131,6 +131,7 @@
       width: 100%;
       margin-top: 4px;
       margin-bottom: 12px;
+      font-size: 16px;
     }
     .close-modal {
       position: absolute;
@@ -283,11 +284,13 @@
 
   // Sound
   let inhaleSynth, exhaleSynth, pauseSynth, endSynth;
+  let gainNode;
   function setupSynths() {
-    inhaleSynth = new Tone.Oscillator(62, "sine").toDestination();
-    exhaleSynth = new Tone.Oscillator(124, "sine").toDestination();
-    pauseSynth = new Tone.Oscillator(82, "sine").toDestination();
-    endSynth = new Tone.Oscillator(440, "sine").toDestination();
+    gainNode = new Tone.Gain(0).toDestination();
+    inhaleSynth = new Tone.Oscillator(62, "sine").connect(gainNode);
+    exhaleSynth = new Tone.Oscillator(124, "sine").connect(gainNode);
+    pauseSynth = new Tone.Oscillator(82, "sine").connect(gainNode);
+    endSynth = new Tone.Oscillator(440, "sine").connect(gainNode);
   }
   setupSynths();
 
@@ -312,6 +315,16 @@
     animFrame = requestAnimationFrame(step);
   }
 
+  function fadeIn() {
+    gainNode.gain.cancelScheduledValues(Tone.now());
+    gainNode.gain.setValueAtTime(0, Tone.now());
+    gainNode.gain.linearRampToValueAtTime(0.2, Tone.now() + 0.05);
+  }
+  function fadeOut() {
+    gainNode.gain.cancelScheduledValues(Tone.now());
+    gainNode.gain.linearRampToValueAtTime(0, Tone.now() + 0.05);
+  }
+
   function doPhase() {
     if (!breathing || totalTimeRemaining <= 0) return;
 
@@ -323,35 +336,40 @@
     switch (phase) {
       case "inhale":
         inhaleSynth.start(Tone.now());
+        fadeIn();
         animateRadius(30, 90, inhale * 1000, () => {
-          inhaleSynth.stop(Tone.now());
+          fadeOut();
+          setTimeout(() => inhaleSynth.stop(Tone.now()), 60); // stop after fade
           phase = inhalePause > 0 ? "inhalePause" : "exhale";
           doPhase();
         });
         break;
-
       case "inhalePause":
         pauseSynth.start(Tone.now());
+        fadeIn();
         phaseTimeout = setTimeout(() => {
-          pauseSynth.stop(Tone.now());
+          fadeOut();
+          setTimeout(() => pauseSynth.stop(Tone.now()), 60);
           phase = "exhale";
           doPhase();
         }, inhalePause * 1000);
         break;
-
       case "exhale":
         exhaleSynth.start(Tone.now());
+        fadeIn();
         animateRadius(90, 30, exhale * 1000, () => {
-          exhaleSynth.stop(Tone.now());
+          fadeOut();
+          setTimeout(() => exhaleSynth.stop(Tone.now()), 60);
           phase = exhalePause > 0 ? "exhalePause" : "inhale";
           doPhase();
         });
         break;
-
       case "exhalePause":
         pauseSynth.start(Tone.now());
+        fadeIn();
         phaseTimeout = setTimeout(() => {
-          pauseSynth.stop(Tone.now());
+          fadeOut();
+          setTimeout(() => pauseSynth.stop(Tone.now()), 60);
           phase = "inhale";
           doPhase();
         }, exhalePause * 1000);
