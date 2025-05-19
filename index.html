@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Resonant Breathing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: linear-gradient(to bottom, #1e2a38, #000000);
+      font-family: Arial, sans-serif;
+      color: white;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #top-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: calc(100% - 160px); /* Leaves space for controls */
+    }
+
+    #svg-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #breath-svg {
+      width: 100%;
+      max-width: 400px;
+      height: auto;
+    }
+
+    #phase-label {
+      margin-top: 10px;
+      font-size: 1.5em;
+      text-align: center;
+    }
+
+    #controls {
+      position: relative;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(30, 42, 56, 0.95);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.9em;
+    }
+
+    input, select, button {
+      font-size: 1em;
+      margin-top: 2px;
+      padding: 4px;
+      width: 100%;
+    }
+
+    button {
+      background: #2a3f5f;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #3a5f7f;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="top-container">
+    <div id="svg-wrapper">
+      <svg id="breath-svg" viewBox="0 0 400 400">
+        <defs>
+          <radialGradient id="grad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ddd"/>
+            <stop offset="100%" stop-color="#666"/>
+          </radialGradient>
+        </defs>
+        <circle id="breath-circle" cx="200" cy="200" r="50" fill="url(#grad)" />
+      </svg>
+      <div id="phase-label">Ready</div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <label>Inhale (s): <input type="number" id="inhale" value="4" min="0"></label>
+    <label>Inhale Pause (s): <input type="number" id="inhalePause" value="0" min="0"></label>
+    <label>Exhale (s): <input type="number" id="exhale" value="4" min="0"></label>
+    <label>Exhale Pause (s): <input type="number" id="exhalePause" value="0" min="0"></label>
+    <label>Duration:
+      <select id="duration">
+        <option value="300">5 min</option>
+        <option value="600">10 min</option>
+        <option value="900">15 min</option>
+        <option value="1200">20 min</option>
+      </select>
+    </label>
+    <button onclick="startBreathing()">Start</button>
+    <button onclick="pauseBreathing()">Pause</button>
+    <button onclick="stopBreathing()">Stop</button>
+  </div>
+
+  <script>
+    const circle = document.getElementById("breath-circle");
+    const label = document.getElementById("phase-label");
+
+    const synth = new Tone.Synth({
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.2, decay: 0.1, sustain: 1, release: 0.2 }
+    }).toDestination();
+    synth.volume.value = 9;
+
+    let running = false;
+    let timeoutID, animationFrame;
+    let currentPhase = 0;
+    let remainingTime = 0;
+    let phases = [];
+
+    function createPhases() {
+      phases = [];
+      let inhale = parseFloat(document.getElementById("inhale").value);
+      let inhalePause = parseFloat(document.getElementById("inhalePause").value);
+      let exhale = parseFloat(document.getElementById("exhale").value);
+      let exhalePause = parseFloat(document.getElementById("exhalePause").value);
+      remainingTime = parseFloat(document.getElementById("duration").value);
+
+      if (inhale > 0) phases.push({ label: "Inhale", duration: inhale, freq: 62, radius: 180 });
+      if (inhalePause > 0) phases.push({ label: "Hold", duration: inhalePause, freq: null, radius: 180 });
+      if (exhale > 0) phases.push({ label: "Exhale", duration: exhale, freq: 124, radius: 50 });
+      if (exhalePause > 0) phases.push({ label: "Pause", duration: exhalePause, freq: null, radius: 50 });
+    }
+
+    let currentRadius = 50;
+    let targetRadius = 50;
+
+    function animateCircle() {
+      currentRadius += (targetRadius - currentRadius) * 0.05;
+      circle.setAttribute("r", currentRadius.toFixed(2));
+      animationFrame = requestAnimationFrame(animateCircle);
+    }
+
+    function playPhase() {
+      if (!running || remainingTime <= 0) {
+        label.textContent = "Session Complete";
+        cancelAnimationFrame(animationFrame);
+        circle.setAttribute("r", 50);
+        synth.triggerAttackRelease(440, 2);
+        return;
+      }
+
+      const phase = phases[currentPhase];
+      label.textContent = phase.label;
+      targetRadius = phase.radius;
+
+      if (phase.freq) {
+        Tone.start().then(() => {
+          synth.triggerAttackRelease(phase.freq, phase.duration);
+        });
+      }
+
+      remainingTime -= phase.duration;
+      timeoutID = setTimeout(() => {
+        currentPhase = (currentPhase + 1) % phases.length;
+        playPhase();
+      }, phase.duration * 1000);
+    }
+
+    function startBreathing() {
+      clearTimeout(timeoutID);
+      cancelAnimationFrame(animationFrame);
+      createPhases();
+      currentPhase = 0;
+      running = true;
+      animateCircle();
+      playPhase();
+    }
+
+    function pauseBreathing() {
+      clearTimeout(timeoutID);
+      cancelAnimationFrame(animationFrame);
+      running = false;
+      label.textContent = "Paused";
+    }
+
+    function stopBreathing() {
+      clearTimeout(timeoutID);
+      cancelAnimationFrame(animationFrame);
+      running = false;
+      remainingTime = 0;
+      label.textContent = "Stopped";
+      circle.setAttribute("r", 50);
+    }
+  </script>
+</body>
+</html>
